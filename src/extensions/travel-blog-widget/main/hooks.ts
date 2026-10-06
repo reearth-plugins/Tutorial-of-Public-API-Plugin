@@ -1,70 +1,70 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
-import { MouseEventProps } from "@/shared/reearthTypes";
-import { hexToHSL, postMsg } from "@/shared/utils";
+import type { WidgetSettings } from "@/shared/messages";
+import { parseTrips, type Trip } from "@/shared/trips";
+import { postMsg } from "@/shared/utils";
 
-export default () => {
-  const inited = useRef(false);
+export type LoadState =
+  | { status: "no-url" }
+  | { status: "loading" }
+  | { status: "ready"; trips: Trip[]; skipped: number }
+  | { status: "error"; message: string };
 
-  useLayoutEffect(() => {
-    if (!inited.current) {
-      const { primaryColor } =
-        (
-          window as Window & {
-            _reearth_plugin_extension_init_data_?: {
-              primaryColor?: string;
-            };
-          }
-        )._reearth_plugin_extension_init_data_ ?? {};
-
-      if (primaryColor) {
-        const hslColor = hexToHSL(primaryColor);
-        if (hslColor) {
-          document.documentElement.style.setProperty("--primary", hslColor);
-        }
+/** Read the bootstrap settings that index.html stashed from the __init__ message. */
+function readInitialSettings(): WidgetSettings {
+  return (
+    (
+      window as Window & {
+        _reearth_plugin_extension_init_data_?: WidgetSettings;
       }
-      inited.current = true;
-    }
-  }, []);
+    )._reearth_plugin_extension_init_data_ ?? {}
+  );
+}
 
-  const handleFlyToTokyo = useCallback(() => {
-    postMsg("flyToTokyo");
-  }, []);
+export default function useTravelBlog() {
+  const [cmsUrl, setCmsUrl] = useState(() => readInitialSettings().cmsUrl);
+  const [loadState, setLoadState] = useState<LoadState>({ status: "no-url" });
 
-  const [mouseLocation, setMouseLocation] = useState<{
-    lat: number | undefined;
-    lng: number | undefined;
-    height: number | undefined;
-  }>({
-    lng: 0,
-    lat: 0,
-    height: 0,
-  });
-
-  const handleMouseMove = useCallback((e: MouseEventProps) => {
-    setMouseLocation({
-      lng: e.lng,
-      lat: e.lat,
-      height: e.height,
-    });
-  }, []);
-
+  // Pick up inspector changes sent by the extension.
   useEffect(() => {
-    return window.addEventListener("message", (e) => {
-      if (e.data.action === "mouseMove") {
-        handleMouseMove(e.data.payload);
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.action === "settings") {
+        setCmsUrl((e.data.payload as WidgetSettings | undefined)?.cmsUrl);
       }
-    });
-  }, [handleMouseMove]);
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
-  return {
-    mouseLocation,
-    handleFlyToTokyo,
-  };
-};
+  // Fetch trips from the CMS Public API whenever the URL changes.
+  useEffect(() => {
+    if (!cmsUrl) {
+      setLoadState({ status: "no-url" });
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoadState({ status: "loading" });
+
+    (async () => {
+      try {
+        const res = await fetch(cmsUrl, { signal: controller.signal });
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        const { trips, skipped } = parseTrips(await res.json());
+        console.log("Travel blog: trips", trips);
+        postMsg("trips", { trips });
+        setLoadState({ status: "ready", trips, skipped });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setLoadState({
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+
+    return () => controller.abort();
+  }, [cmsUrl]);
+
+  return { loadState };
+}

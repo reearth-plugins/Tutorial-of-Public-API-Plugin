@@ -1,97 +1,62 @@
-import { ArrowRightCircle } from "lucide-react";
+import { MapPin } from "lucide-react";
 
-import useHooks from "./hooks";
+import useTravelBlog, { type LoadState } from "./hooks";
 
-import { Button } from "@/shared/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
 
+function StatusText({ loadState }: { loadState: LoadState }) {
+  switch (loadState.status) {
+    case "no-url":
+      return (
+        <p className="text-muted-foreground">
+          Set the CMS Public API URL in the widget settings.
+        </p>
+      );
+    case "loading":
+      return <p className="text-muted-foreground">Loading trips…</p>;
+    case "error":
+      return (
+        <p className="text-destructive">
+          Could not load trips: {loadState.message}
+        </p>
+      );
+    case "ready": {
+      const { trips, skipped } = loadState;
+      return (
+        <div className="flex flex-col gap-1">
+          <p>
+            Loaded {trips.length} {trips.length === 1 ? "trip" : "trips"}
+          </p>
+          {skipped > 0 && (
+            <p className="text-muted-foreground">
+              Skipped {skipped} without a valid location
+            </p>
+          )}
+        </div>
+      );
+    }
+  }
+}
 
 function App() {
-  const { mouseLocation, handleFlyToTokyo } = useHooks();
+  const { loadState } = useTravelBlog();
 
-  // This is a simple example of a UI from ShadCN
-  // https://ui.shadcn.com/blocks
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Hello world</CardTitle>
-        <CardDescription>
-          Lipsum dolor sit amet, consectetur adipiscing elit
-        </CardDescription>
+      <CardHeader className="p-4">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <MapPin className="size-4" />
+          Travel Blog
+        </CardTitle>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]" />
-              <TableHead>Longitude</TableHead>
-              <TableHead>Latitude</TableHead>
-              <TableHead>Height</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell className="font-semibold">Mouse</TableCell>
-              <TableCell>
-                <Label htmlFor="mouse-lng" className="sr-only">
-                  Longitude
-                </Label>
-                <Input
-                  id="mouse-lng"
-                  type="number"
-                  disabled
-                  value={mouseLocation.lng}
-                />
-              </TableCell>
-              <TableCell>
-                <Label htmlFor="mouse-lat" className="sr-only">
-                  Latitude
-                </Label>
-                <Input
-                  id="mouse-lat"
-                  type="number"
-                  disabled
-                  value={mouseLocation.lat}
-                />
-              </TableCell>
-              <TableCell>
-                <Label htmlFor="mouse-height" className="sr-only">
-                  Height
-                </Label>
-                <Input
-                  id="mouse-height"
-                  type="number"
-                  disabled
-                  value={mouseLocation.height}
-                />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+      <CardContent className="p-4 pt-0 text-sm">
+        <StatusText loadState={loadState} />
       </CardContent>
-      <CardFooter className="justify-center p-4 border-t">
-        <Button size="sm" className="gap-1" onClick={handleFlyToTokyo}>
-          <ArrowRightCircle className="w-5 h-5" />
-          Fly to Tokyo
-        </Button>
-      </CardFooter>
     </Card>
   );
 }

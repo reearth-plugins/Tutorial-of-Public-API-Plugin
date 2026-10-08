@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 
-import type { WidgetSettings } from "@/shared/messages";
+import { INIT_ACTION, type WidgetSettings } from "@/shared/messages";
 import { parseTrips, type Trip } from "@/shared/trips";
 import { postMsg } from "@/shared/utils";
+
+/** How often to ask the extension for the current settings (ms). */
+const SETTINGS_POLL_INTERVAL = 2000;
 
 export type LoadState =
   | { status: "no-url" }
@@ -25,15 +28,34 @@ export default function useTravelBlog() {
   const [cmsUrl, setCmsUrl] = useState(() => readInitialSettings().cmsUrl);
   const [loadState, setLoadState] = useState<LoadState>({ status: "no-url" });
 
-  // Pick up inspector changes sent by the extension.
+  // Pick up settings from the extension. The __init__ message may arrive
+  // before or after this listener is attached, so handle it here and also
+  // re-read the stashed value once the listener is in place.
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.action === "settings") {
+      const action = e.data?.action;
+      if (action === INIT_ACTION || action === "settings") {
         setCmsUrl((e.data.payload as WidgetSettings | undefined)?.cmsUrl);
       }
     };
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+
+    const stashed = readInitialSettings().cmsUrl;
+    if (stashed) setCmsUrl(stashed);
+
+    // Inspector changes send no message to the widget, so ask the extension
+    // for the current settings now and periodically. setCmsUrl ignores an
+    // unchanged string, so this only refetches when the URL changes.
+    postMsg("getSettings");
+    const timer = setInterval(
+      () => postMsg("getSettings"),
+      SETTINGS_POLL_INTERVAL
+    );
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      clearInterval(timer);
+    };
   }, []);
 
   // Fetch trips from the CMS Public API whenever the URL changes.

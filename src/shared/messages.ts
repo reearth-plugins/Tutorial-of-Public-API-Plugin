@@ -22,4 +22,6 @@ export type LogicToUIMessage =
   | { action: "settings"; payload: WidgetSettings };
 
 /** Messages sent from the UI → extension logic. */
-export type UIToLogicMessage = { action: "trips"; payload: { trips: Trip[] } };
+export type UIToLogicMessage =
+  | { action: "trips"; payload: { trips: Trip[] } }
+  | { action: "getSettings" };

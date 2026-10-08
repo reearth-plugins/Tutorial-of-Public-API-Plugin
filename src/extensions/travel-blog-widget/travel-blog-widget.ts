@@ -32,16 +32,15 @@ function handleUIMessage(message: unknown): void {
   if (msg?.action === "trips") {
     trips = msg.payload?.trips ?? [];
     console.log(`Travel blog: received ${trips.length} trips`);
+  } else if (msg?.action === "getSettings") {
+    // Inspector changes emit no event, so the UI asks for the current value.
+    reearth.ui.postMessage({ action: "settings", payload: readSettings() });
   }
 }
 
 // Guard startup so a failure here never takes down the map or other plugins.
 try {
   reearth.extension.on("message", handleUIMessage);
-  // Resend settings when the inspector changes, so the UI can refetch.
-  reearth.ui.on("update", () => {
-    reearth.ui.postMessage({ action: "settings", payload: readSettings() });
-  });
   // Bootstrap the first render via the __init__ channel (see index.html).
   reearth.ui.postMessage({ action: INIT_ACTION, payload: readSettings() });
 } catch (error) {

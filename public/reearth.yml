@@ -1,0 +1,16 @@
+id: travel-blog-plugin
+name: Travel Blog
+version: 1.0.0
+extensions:
+  - id: travel-blog-widget
+    type: widget
+    name: Travel Blog
+    schema:
+      groups:
+        - id: data_source
+          title: Data Source
+          fields:
+            - id: cms_url
+              type: string
+              title: CMS Public API URL
+              description: Public API endpoint of the travel blog model

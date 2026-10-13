@@ -62,6 +62,8 @@ export default function useTravelBlog() {
   // Fetch trips from the CMS Public API whenever the URL changes.
   useEffect(() => {
     if (!cmsUrl) {
+      // Clear any markers from a previous URL so the map matches the widget.
+      postMsg("trips", { trips: [] });
       setLoadState({ status: "no-url" });
       return;
     }
@@ -78,6 +80,7 @@ export default function useTravelBlog() {
         setLoadState({ status: "ready", trips, skipped });
       } catch (error) {
         if (controller.signal.aborted) return;
+        postMsg("trips", { trips: [] });
         setLoadState({
           status: "error",
           message: error instanceof Error ? error.message : String(error),

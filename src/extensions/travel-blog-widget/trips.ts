@@ -51,17 +51,63 @@ export function normalizeTrip(item: unknown): Trip | undefined {
   };
 }
 
-/** Parse a Public API response body into trips, counting skipped items. */
-export function parseTrips(body: unknown): { trips: Trip[]; skipped: number } {
-  const results = (body as { results?: unknown })?.results;
-  if (!Array.isArray(results)) {
-    throw new Error("Unexpected response: missing results array");
-  }
-
+/** Convert raw CMS items into trips, counting the ones that were skipped. */
+export function parseTrips(items: unknown[]): {
+  trips: Trip[];
+  skipped: number;
+} {
   const trips: Trip[] = [];
-  for (const item of results) {
+  for (const item of items) {
     const trip = normalizeTrip(item);
     if (trip) trips.push(trip);
   }
-  return { trips, skipped: results.length - trips.length };
+  return { trips, skipped: items.length - trips.length };
+}
+
+/** Items requested per page, unless the URL already sets perPage. */
+const PER_PAGE = 100;
+/** Upper bound on pages, so a misbehaving API can't loop forever. */
+const MAX_PAGES = 100;
+
+/** One page of a Public API response (page metadata only comes with ?page=). */
+type CmsPage = {
+  results?: unknown;
+  totalCount?: unknown;
+  hasMore?: unknown;
+};
+
+/**
+ * Fetch every page of a CMS Public API model and return all raw items.
+ * Without this, items beyond the first page would be silently dropped.
+ */
+export async function fetchAllItems(
+  url: string,
+  signal?: AbortSignal
+): Promise<unknown[]> {
+  const items: unknown[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const pageUrl = new URL(url);
+    pageUrl.searchParams.set("page", String(page));
+    if (!pageUrl.searchParams.has("perPage")) {
+      pageUrl.searchParams.set("perPage", String(PER_PAGE));
+    }
+
+    const res = await fetch(pageUrl, { signal });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+    const body = (await res.json()) as CmsPage;
+    if (!Array.isArray(body?.results)) {
+      throw new Error("Unexpected response: missing results array");
+    }
+    items.push(...body.results);
+
+    const done =
+      body.results.length === 0 ||
+      body.hasMore === false ||
+      (typeof body.totalCount === "number" && items.length >= body.totalCount);
+    if (done) return items;
+  }
+
+  throw new Error(`Too many pages (more than ${MAX_PAGES})`);
 }

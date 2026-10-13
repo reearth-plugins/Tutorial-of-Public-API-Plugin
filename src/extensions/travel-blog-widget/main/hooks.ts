@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { INIT_ACTION, type WidgetSettings } from "../messages";
-import { parseTrips, type Trip } from "../trips";
+import { fetchAllItems, parseTrips, type Trip } from "../trips";
 
 import { postMsg } from "@/shared/utils";
 
@@ -71,9 +71,8 @@ export default function useTravelBlog() {
 
     (async () => {
       try {
-        const res = await fetch(cmsUrl, { signal: controller.signal });
-        if (!res.ok) throw new Error(`Request failed (${res.status})`);
-        const { trips, skipped } = parseTrips(await res.json());
+        const items = await fetchAllItems(cmsUrl, controller.signal);
+        const { trips, skipped } = parseTrips(items);
         console.log("Travel blog: trips", trips);
         postMsg("trips", { trips });
         setLoadState({ status: "ready", trips, skipped });

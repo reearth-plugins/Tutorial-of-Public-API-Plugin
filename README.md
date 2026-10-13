@@ -23,6 +23,9 @@ Enable Public API access for the model.
 2. In the widget settings, set **CMS Public API URL** to the model's Public API
    endpoint.
 
+The widget fetches every page of the model (100 items per request), so no
+items are dropped. To use a different page size, add `?perPage=N` to the URL.
+
 ## Development
 
 ```bash

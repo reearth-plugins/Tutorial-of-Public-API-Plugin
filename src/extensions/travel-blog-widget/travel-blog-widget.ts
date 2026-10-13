@@ -1,5 +1,6 @@
 import html from "@distui/travel-blog-widget/main/index.html?raw";
 
+import { buildTripLayer } from "./layer";
 import {
   INIT_ACTION,
   type UIToLogicMessage,
@@ -21,6 +22,24 @@ type WidgetProperty = {
 /** Trips fetched by the UI. The UI does the fetch; the extension keeps a copy. */
 let trips: Trip[] = [];
 
+/** Id of the markers layer currently on the map, if any. */
+let tripLayerId: string | undefined;
+
+/** Replace the markers layer so refetches never duplicate markers. */
+function showTripsOnMap(): void {
+  try {
+    if (tripLayerId) {
+      reearth.layers.delete?.(tripLayerId);
+      tripLayerId = undefined;
+    }
+    if (trips.length === 0) return;
+    tripLayerId = reearth.layers.add(buildTripLayer(trips));
+  } catch (error) {
+    // A layer failure should not break the widget; the list still works.
+    console.error("Travel blog: failed to show trips on the map:", error);
+  }
+}
+
 function readSettings(): WidgetSettings {
   const property = reearth.extension.widget?.property as
     | WidgetProperty
@@ -33,6 +52,7 @@ function handleUIMessage(message: unknown): void {
   if (msg?.action === "trips") {
     trips = msg.payload?.trips ?? [];
     console.log(`Travel blog: received ${trips.length} trips`);
+    showTripsOnMap();
   } else if (msg?.action === "getSettings") {
     // Inspector changes emit no event, so the UI asks for the current value.
     reearth.ui.postMessage({ action: "settings", payload: readSettings() });

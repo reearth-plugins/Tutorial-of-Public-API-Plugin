@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { INIT_ACTION, type WidgetSettings } from "@/shared/messages";
-import { parseTrips, type Trip } from "@/shared/trips";
+import { INIT_ACTION, type WidgetSettings } from "../messages";
+import { parseTrips, type Trip } from "../trips";
+
 import { postMsg } from "@/shared/utils";
 
 /** How often to ask the extension for the current settings (ms). */

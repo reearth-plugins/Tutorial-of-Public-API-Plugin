@@ -4,9 +4,10 @@ import {
   INIT_ACTION,
   type UIToLogicMessage,
   type WidgetSettings,
-} from "@/shared/messages";
+} from "./messages";
+import type { Trip } from "./trips";
+
 import { GlobalThis } from "@/shared/reearthTypes";
-import type { Trip } from "@/shared/trips";
 
 const reearth = (globalThis as unknown as GlobalThis).reearth;
 

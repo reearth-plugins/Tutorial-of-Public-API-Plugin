@@ -26,6 +26,9 @@ Enable Public API access for the model.
 The widget fetches every page of the model (100 items per request), so no
 items are dropped. To use a different page size, add `?perPage=N` to the URL.
 
+Each trip is shown on the map as a marker labelled with its city. Click a
+marker to see the city, country, food and date in the infobox.
+
 ## Development
 
 ```bash

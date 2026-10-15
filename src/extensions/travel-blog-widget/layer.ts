@@ -15,6 +15,9 @@ export function toFeatureCollection(trips: Trip[]) {
       type: "Feature" as const,
       id: trip.id,
       properties: {
+        // Read through idProperty (below): Re:Earth ignores the feature's
+        // top-level id and would otherwise generate a random one.
+        id: trip.id,
         city: trip.city,
         country: trip.country,
         food: trip.food,
@@ -50,6 +53,8 @@ export function buildTripLayer(trips: Trip[]): NaiveLayer {
     data: {
       type: "geojson",
       value: toFeatureCollection(trips),
+      // Feature ids = trip ids, so selectFeature and select events use them.
+      idProperty: "id",
     },
     marker: {
       style: "point",

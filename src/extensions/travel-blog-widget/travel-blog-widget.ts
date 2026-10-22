@@ -40,6 +40,35 @@ function showTripsOnMap(): void {
   }
 }
 
+/** Camera height (m) and flight time (s) when flying to a trip. */
+const FLY_TO_HEIGHT = 50000;
+const FLY_TO_DURATION = 2;
+
+/** Fly the camera to a trip and open its infobox by selecting its marker. */
+function flyToTrip(id: string): void {
+  const trip = trips.find((t) => t.id === id);
+  if (!trip) return;
+  try {
+    reearth.camera.flyTo(
+      { lng: trip.lng, lat: trip.lat, height: FLY_TO_HEIGHT },
+      { duration: FLY_TO_DURATION }
+    );
+    // Feature ids are trip ids (see idProperty in layer.ts).
+    if (tripLayerId) reearth.layers.selectFeature?.(tripLayerId, id);
+  } catch (error) {
+    console.error("Travel blog: failed to fly to trip:", error);
+  }
+}
+
+/** Tell the UI which trip is selected on the map, so it can highlight it. */
+function handleLayerSelect(
+  layerId: string | undefined,
+  featureId: string | undefined
+): void {
+  const id = layerId && layerId === tripLayerId ? featureId : undefined;
+  reearth.ui.postMessage({ action: "selected", payload: { id } });
+}
+
 function readSettings(): WidgetSettings {
   const property = reearth.extension.widget?.property as
     | WidgetProperty
@@ -56,12 +85,16 @@ function handleUIMessage(message: unknown): void {
   } else if (msg?.action === "getSettings") {
     // Inspector changes emit no event, so the UI asks for the current value.
     reearth.ui.postMessage({ action: "settings", payload: readSettings() });
+  } else if (msg?.action === "flyTo") {
+    const id = msg.payload?.id;
+    if (typeof id === "string") flyToTrip(id);
   }
 }
 
 // Guard startup so a failure here never takes down the map or other plugins.
 try {
   reearth.extension.on("message", handleUIMessage);
+  reearth.layers.on("select", handleLayerSelect);
   // Bootstrap the first render via the __init__ channel (see index.html).
   reearth.ui.postMessage({ action: INIT_ACTION, payload: readSettings() });
 } catch (error) {

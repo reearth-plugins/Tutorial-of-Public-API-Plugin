@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { INIT_ACTION, type WidgetSettings } from "../messages";
 import { fetchAllItems, parseTrips, type Trip } from "../trips";
@@ -25,9 +25,21 @@ function readInitialSettings(): WidgetSettings {
   );
 }
 
+/** Newest first. Dates are "YYYY-MM", so string order is date order. */
+function sortByDateDesc(trips: Trip[]): Trip[] {
+  return [...trips].sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export default function useTravelBlog() {
   const [cmsUrl, setCmsUrl] = useState(() => readInitialSettings().cmsUrl);
   const [loadState, setLoadState] = useState<LoadState>({ status: "no-url" });
+  /** Id of the highlighted trip, from a row click or a marker click. */
+  const [selectedId, setSelectedId] = useState<string>();
+
+  const flyTo = useCallback((id: string) => {
+    setSelectedId(id);
+    postMsg("flyTo", { id });
+  }, []);
 
   // Pick up settings from the extension. The __init__ message may arrive
   // before or after this listener is attached, so handle it here and also
@@ -37,6 +49,9 @@ export default function useTravelBlog() {
       const action = e.data?.action;
       if (action === INIT_ACTION || action === "settings") {
         setCmsUrl((e.data.payload as WidgetSettings | undefined)?.cmsUrl);
+      } else if (action === "selected") {
+        // A marker (or something else on the map) was clicked.
+        setSelectedId((e.data.payload as { id?: string } | undefined)?.id);
       }
     };
     window.addEventListener("message", handleMessage);
@@ -70,11 +85,14 @@ export default function useTravelBlog() {
 
     const controller = new AbortController();
     setLoadState({ status: "loading" });
+    setSelectedId(undefined);
 
     (async () => {
       try {
         const items = await fetchAllItems(cmsUrl, controller.signal);
-        const { trips, skipped } = parseTrips(items);
+        const parsed = parseTrips(items);
+        const trips = sortByDateDesc(parsed.trips);
+        const { skipped } = parsed;
         console.log("Travel blog: trips", trips);
         postMsg("trips", { trips });
         setLoadState({ status: "ready", trips, skipped });
@@ -91,5 +109,5 @@ export default function useTravelBlog() {
     return () => controller.abort();
   }, [cmsUrl]);
 
-  return { loadState };
+  return { loadState, selectedId, flyTo };
 }
